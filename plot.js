@@ -13,8 +13,8 @@ function init() {
 
 function loadData() {
     return Promise.all([
-        d3.csv("/data/verified_cooc_lc_nodes.csv"),
-        d3.csv("/data/verified_cooc_lc_links.csv")
+        d3.csv("verified_cooc_lc_nodes.csv"),
+        d3.csv("verified_cooc_lc_links.csv")
     ]);
 }
 
