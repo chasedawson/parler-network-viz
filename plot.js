@@ -13,25 +13,19 @@ function init() {
 
 function loadData() {
     return Promise.all([
-        d3.csv("/chart_data/cooc32long_bw_nodelist.csv"),
-        d3.csv("/chart_data/cooc32long_bw_edgelist.csv")
+        d3.csv("/data/verified_cooc_lc_nodes.csv"),
+        d3.csv("/data/verified_cooc_lc_links.csv")
     ]);
 }
 
 function preprocess(data) {
-    data.nodes = data.nodes.map(d => {
-        return {
-            id: d.id,
-            label: d.label,
-            bw_count: parseInt(d.bw_count),
-            bw_diff: parseInt(d.bw_diff),
-            bw_which: d.bw_which,
-            b_count: parseInt(d.bw_count),
-            w_count: parseInt(d.w_count),
-            louvain: parseInt(d.louvain),
-            fstgrdy: parseInt(d.fstgrdy)
-        }
+    var nmap = new Map();
+    data.links = data.links.filter(d => d.source != "stopthesteal" && d.target != "stopthesteal").filter(d => d.weight >= 10);
+    data.links.forEach(d => {
+        if (!nmap.has(d.source)) nmap.set(d.source, d.source);
+        if (!nmap.has(d.target)) nmap.set(d.target, d.target);
     });
+    data.nodes = data.nodes.filter(d => nmap.has(d.id));
     return data;
 }
 
@@ -64,20 +58,20 @@ function drawChart(data) {
         .attr('class', '.node');
 
     var radiusScale = d3.scaleLinear()
-        .domain([0, d3.max(data.nodes.map(d => d.bw_count))])
-        .range([2, 20]);
+        .domain([0, d3.max(data.nodes.map(d => d.count))])
+        .range([1, 10]);
 
     var colorScale = d3.scaleSequential()
         .domain([d3.min(data.nodes.map(d => d.louvain)), d3.max(data.nodes.map(d => d.louvain))])
         .interpolator(d3.interpolateViridis);
 
     function filterOutText(d) {
-        if (radiusScale(d.bw_count) > 2) return false;
+        if (d.count > 50) return false;
         else return true;
     }
 
     node.append('circle')
-        .attr('r', d => radiusScale(d.bw_count))
+        .attr('r', d => radiusScale(d.count))
         .attr('data-label', d => d.label)
         .style('fill', d => colorScale(d.louvain))
         .on("mouseover", function(d) {     
@@ -142,7 +136,7 @@ function drawChart(data) {
         });
 
     node.append('text')
-        .attr('dx', d => radiusScale(d.bw_count) + "px")
+        .attr('dx', d => radiusScale(d.count) + "px")
         .attr('dy', '.4em')
         .attr('fill', 'black')
         .attr('font-size', '.8em')
@@ -151,7 +145,7 @@ function drawChart(data) {
 
     var simulation = d3.forceSimulation(data.nodes)
         .force('link', d3.forceLink().id(function(d) { return d.id; }).links(data.links))
-        .force('charge', d3.forceManyBody())
+        .force('charge', d3.forceManyBody().strength(-50))
         .force('center', d3.forceCenter(width / 2, height / 2))
         .on('tick', ticked);
 
@@ -163,12 +157,12 @@ function drawChart(data) {
     function ticked() {
         function getX(d) {
             console.log(d);
-            var radius = radiusScale(d.bw_count);
+            var radius = radiusScale(d.count);
             return Math.max(radius, Math.min(width - radius, d.x));
         }
 
         function getY(d) {
-            var radius = radiusScale(d.bw_count);
+            var radius = radiusScale(d.count);
             return Math.max(radius, Math.min(height - radius, d.y));
         }
 
